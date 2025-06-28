@@ -1,3 +1,5 @@
+import json
+import sys
 from parser.exporter import export_to_json
 from parser.parser import parse_lines
 from parser.reader import read_markdown
@@ -183,6 +185,54 @@ def list_objects(space_name, query, type_keys):
 @cli.command()
 @click.option(
     "--space-name",
+    required=True,
+    help="The name of the Anytype space.",
+)
+@click.option("--fr-id", required=True, help="The ID of the Functional Requirement.")
+@click.option(
+    "--fr-description",
+    required=True,
+    help="The description of the Functional Requirement.",
+)
+@click.option(
+    "--fr-status",
+    default="To Do",
+    help="The status of the Functional Requirement (e.g., 'To Do', 'In Progress', 'Done').",
+)
+@click.option(
+    "--fr-type-key",
+    default="task",
+    help="The type key for FunctionalRequirement objects.",
+)
+def create_fr(space_name, fr_id, fr_description, fr_status, fr_type_key):
+    """Create a single Functional Requirement object in Anytype."""
+    try:
+        anytype_client = AnytypeClient()
+        spaces = anytype_client.get_spaces()
+        space = next((s for s in spaces["data"] if s["name"] == space_name), None)
+        if not space:
+            click.echo(f"Error: Space '{space_name}' not found.")
+            return
+        space_id = space["id"]
+
+        fr_payload = {
+            "type_key": fr_type_key,
+            "name": fr_id,
+            "properties": [
+                {"key": "description", "text": fr_description},
+                {"key": "status", "select": fr_status},
+            ],
+        }
+        created_fr = anytype_client.create_object(space_id, fr_payload)
+        click.echo(f"✅ Created FunctionalRequirement: {created_fr['id']}")
+
+    except Exception as e:
+        click.echo(f"Error: {e}")
+
+
+@cli.command()
+@click.option(
+    "--space-name",
     default="Everywhere",
     required=True,
     help="The name of the Anytype space.",
@@ -222,6 +272,70 @@ def list_frs(space_name, fr_type_key):
                     click.echo(f"- {obj_type['name']} (Key: {obj_type['key']})")
             else:
                 click.echo("No object types found in this space.")
+
+    except Exception as e:
+        click.echo(f"Error: {e}")
+
+
+@cli.command()
+@click.option(
+    "--space-name",
+    default="Everywhere",
+    help="The name of the Anytype space.",
+)
+@click.option(
+    "--type-key",
+    help="The key of the object type to get details for.",
+)
+def get_type_details(space_name, type_key):
+    """Get details of a specific object type in an Anytype space."""
+    try:
+        anytype_client = AnytypeClient()
+        spaces = anytype_client.get_spaces()
+        space = next((s for s in spaces["data"] if s["name"] == space_name), None)
+        if not space:
+            click.echo(f"Error: Space '{space_name}' not found.")
+            return
+        space_id = space["id"]
+
+        if not type_key:
+            object_types = anytype_client.get_object_types(space_id)
+            if not (object_types and object_types["data"]):
+                click.echo("No object types found in this space.")
+                return
+            if not sys.stdin.isatty():
+                click.echo("Available object types:")
+                for obj_type in object_types["data"]:
+                    click.echo(f"- {obj_type['name']} (Key: {obj_type['key']})")
+                click.echo(
+                    "\nError: --type-key is required when not running in an interactive terminal."
+                )
+                return
+
+            choices = []
+            for obj_type in object_types["data"]:
+                choices.append(
+                    {
+                        "name": f"{obj_type['name']} (Key: {obj_type['key']})",
+                        "value": obj_type["id"],
+                    }
+                )
+            selected_type_key = questionary.select(
+                "Select an object type:",
+                choices=choices,
+                instruction="Use arrow keys to navigate, enter to confirm.",
+            ).ask()
+            if not selected_type_key:
+                click.echo("No type selected. Exiting.")
+                return
+            type_key = selected_type_key
+
+        type_details = anytype_client.get_object_type(space_id, type_key)
+        if type_details:
+            click.echo(f"\n--- Details for Type: {type_details} (Key: ) ---")
+            click.echo(json.dumps(type_details, indent=2))
+        else:
+            click.echo(f"Error: Type '{type_key}' not found in space '{space_name}'.")
 
     except Exception as e:
         click.echo(f"Error: {e}")
