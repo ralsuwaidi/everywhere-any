@@ -18,6 +18,7 @@ def cli():
 
 from commands.sf import create_sf
 from commands.list_templates import list_templates
+from commands.import_requirements import import_requirements
 
 cli.add_command(create)
 cli.add_command(list_objects)
@@ -28,6 +29,7 @@ cli.add_command(validate_requirements_command)
 cli.add_command(create_objects_command)
 cli.add_command(create_sf)
 cli.add_command(list_templates)
+cli.add_command(import_requirements)
 
 if __name__ == "__main__":
     cli()

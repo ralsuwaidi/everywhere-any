@@ -14,9 +14,6 @@ non_functional_pattern = re.compile(
 def parse_lines(lines: list[str]) -> list[SystemFeature]:
     features = []
     current_sr = None
-    collecting_description = False
-    collecting_stimulus = False
-    stimulus_lines = []
     parsing = True
 
     for line in lines:
@@ -28,42 +25,18 @@ def parse_lines(lines: list[str]) -> list[SystemFeature]:
             continue
 
         sr_match = sr_heading_pattern.match(line)
-        description_match = description_pattern.match(line)
-        stimulus_match = stimulus_pattern.match(line)
         fr_match = fr_pattern.match(line)
 
         if sr_match:
             sr_number = sr_match.group(1)
-            sr_desc = sr_match.group(2)
+            sr_desc = sr_match.group(2).replace("**", "").strip()
 
             if sr_number.startswith("2."):
                 sr_id = f"SR-{sr_number.split('.')[1]}"
                 current_sr = SystemFeature(id=sr_id, description=sr_desc)
                 features.append(current_sr)
-                collecting_description = True
-                collecting_stimulus = False
-                stimulus_lines = []
             else:
                 current_sr = None
-            continue
-
-        if collecting_description and description_match and current_sr:
-            current_sr.description = description_match.group(1)
-            collecting_description = False
-            collecting_stimulus = True
-            continue
-
-        if collecting_stimulus and stimulus_match:
-            stimulus_lines = []
-            continue
-
-        if (
-            collecting_stimulus
-            and (line.strip().startswith("*") or line.strip().startswith("-"))
-            and not fr_match
-        ):
-            stimulus_lines.append(line.lstrip("*- ").strip())
-            current_sr.description += " Stimulus/Response: " + " ".join(stimulus_lines)
             continue
 
         if fr_match and current_sr:
