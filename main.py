@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from commands.create import create
 from commands.fr import create_fr, list_frs
 from commands.list import list_objects, get_object_type_details
+from commands.validate import validate_requirements_command
+from commands.objects import create_objects_command
 
 load_dotenv()
 
@@ -19,6 +21,8 @@ cli.add_command(list_objects)
 cli.add_command(get_object_type_details)
 cli.add_command(create_fr)
 cli.add_command(list_frs)
+cli.add_command(validate_requirements_command)
+cli.add_command(create_objects_command)
 
 if __name__ == "__main__":
     cli()

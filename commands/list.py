@@ -158,10 +158,11 @@ def get_object_type_details(space_name, object_type_id):
 
         type_details = anytype_client.get_object_type(space_id, object_type_id)
         if type_details:
-            click.echo(f"\n--- Details for Type: {type_details} (Key: ) ---")
             click.echo(json.dumps(type_details, indent=2))
         else:
-            click.echo(f"Error: Type '{object_type_id}' not found in space '{space_name}'.")
+            click.echo(
+                f"Error: Type '{object_type_id}' not found in space '{space_name}'."
+            )
 
     except Exception as e:
         click.echo(f"Error: {e}")
