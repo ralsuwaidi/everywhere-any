@@ -1,5 +1,7 @@
 import click
 from dotenv import load_dotenv
+import markdown
+from weasyprint import HTML
 
 from anytype_api import AnytypeClient
 
@@ -13,10 +15,16 @@ load_dotenv()
 )
 @click.option(
     "--output-file",
-    default="report.md",
-    help="The name of the output Markdown file.",
+    default="report",
+    help="The name of the output file (without extension).",
 )
-def generate_report(space_name, output_file):
+@click.option(
+    "--output-format",
+    type=click.Choice(["md", "pdf"], case_sensitive=False),
+    default="md",
+    help="The output format for the report.",
+)
+def generate_report(space_name, output_file, output_format):
     """Generates a Markdown report of System Features and Functional Requirements from Anytype."""
     try:
         anytype_client = AnytypeClient()
@@ -170,11 +178,28 @@ def generate_report(space_name, output_file):
             report_content.append("\n")
 
         # Write to file
-        with open(output_file, "w") as f:
-            f.writelines(report_content)
+        if output_format == "md":
+            final_output_file = f"{output_file}.md"
+            with open(final_output_file, "w") as f:
+                f.writelines(report_content)
+            click.echo(f"✅ Report generated successfully: {final_output_file}")
+        elif output_format == "pdf":
+            final_output_file = f"{output_file}.pdf"
+            md_content = "".join(report_content)
+            
+            click.echo(f"Converting Markdown to PDF: {final_output_file}...")
+            
+            try:
+                html_content = markdown.markdown(md_content)
+                HTML(string=html_content).write_pdf(final_output_file)
+                click.echo(f"✅ Report generated successfully: {final_output_file}")
+            except Exception as e:
+                click.echo(f"Error during PDF conversion: {e}")
 
-        click.echo(f"✅ Report generated successfully: {output_file}")
-
+    except FileNotFoundError:
+        click.echo(f"Error: The file '{output_file}.md' was not found during PDF conversion.")
+    except click.exceptions.Abort:
+        click.echo("\nReport generation cancelled by user.")
     except Exception as e:
         click.echo(f"Error generating report: {e}")
         import traceback

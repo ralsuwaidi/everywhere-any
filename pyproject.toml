@@ -9,4 +9,6 @@ dependencies = [
     "click>=8.1.7",
     "python-dotenv>=0.21.0",
     "questionary>=1.10.0",
+    "markdown>=3.6",
+    "weasyprint>=61.0",
 ]
