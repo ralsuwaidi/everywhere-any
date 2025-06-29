@@ -28,11 +28,6 @@ load_dotenv()
     help="The status of the Functional Requirement (e.g., 'To Do', 'In Progress', 'Done').",
 )
 @click.option(
-    "--fr-type-key",
-    default="6829be190dd8772c7c96a583",
-    help="The type key for FunctionalRequirement objects.",
-)
-@click.option(
     "--system-feature-id",
     help="The ID of the related System Feature object.",
 )
@@ -56,7 +51,6 @@ def create_fr(
     fr_name,
     fr_description,
     fr_status,
-    fr_type_key,
     system_feature_id,
     system_feature_name,
     system_feature_type_key,
@@ -126,7 +120,7 @@ def create_fr(
             properties.append({"key": "links", "objects": links.split(",")})
 
         # Check if an FR with the same ID already exists
-        existing_frs = anytype_client.search_objects(space_id, fr_name, [fr_type_key])
+        existing_frs = anytype_client.search_objects(space_id, fr_name, ["6829be190dd8772c7c96a583"])
         if existing_frs and existing_frs["data"]:
             for obj in existing_frs["data"]:
                 if obj["name"] == fr_name:
@@ -136,7 +130,7 @@ def create_fr(
                     return
 
         fr_payload = {
-            "type_key": fr_type_key,
+            "type_key": "6829be190dd8772c7c96a583",
             "name": fr_name,
             "properties": properties,
         }
@@ -157,12 +151,7 @@ def create_fr(
     required=True,
     help="The name of the Anytype space.",
 )
-@click.option(
-    "--fr-type-key",
-    default="task",
-    help="The type key for FunctionalRequirement objects.",
-)
-def list_frs(space_name, fr_type_key):
+def list_frs(space_name):
     """List all Functional Requirements in a given space."""
     try:
         anytype_client = AnytypeClient()
@@ -173,7 +162,7 @@ def list_frs(space_name, fr_type_key):
             return
         space_id = space["id"]
 
-        results = anytype_client.search_objects(space_id, "", [fr_type_key])
+        results = anytype_client.search_objects(space_id, "", ["6829be190dd8772c7c96a583"])
         click.echo(f"\n--- Functional Requirements in '{space_name}' ---")
         if results and results["data"]:
             for obj in results["data"]:
