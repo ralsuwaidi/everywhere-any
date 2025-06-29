@@ -57,8 +57,8 @@ def import_requirements(requirements_file):
                 f"\nProcessing Functional Requirements for System Feature: {sf_name}"
             )
             for fr in frs:
-                prompt = f"Create FR '{fr['name']}' (Description: '{fr['description']}') under System Feature '{sf_name}'? (Y/n)"
-                if not click.confirm(prompt):
+                prompt = f"Create FR '{fr['name']}' (Description: '{fr['description']}') under System Feature '{sf_name}'?"
+                if not click.confirm(prompt, default=True):
                     click.echo("Import process cancelled by user.")
                     return
 
