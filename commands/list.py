@@ -132,7 +132,7 @@ def get_object_type_details(space_name, object_type_id):
             if not sys.stdin.isatty():
                 click.echo("Available object types:")
                 for obj_type in object_types["data"]:
-                    click.echo(f"- {obj_type['name']} (Key: {obj_type['key']})")
+                    click.echo(f"- {obj_type['name']} (ID: {obj_type['id']})")
                 click.echo(
                     "\nError: --object-type-id is required when not running in an interactive terminal."
                 )
@@ -142,7 +142,7 @@ def get_object_type_details(space_name, object_type_id):
             for obj_type in object_types["data"]:
                 choices.append(
                     {
-                        "name": f"{obj_type['name']} (Key: {obj_type['key']})",
+                        "name": f"{obj_type['name']} (ID: {obj_type['id']})",
                         "value": obj_type["id"],
                     }
                 )

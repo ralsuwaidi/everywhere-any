@@ -16,6 +16,8 @@ def cli():
     pass
 
 
+from commands.sf import create_sf
+
 cli.add_command(create)
 cli.add_command(list_objects)
 cli.add_command(get_object_type_details)
@@ -23,6 +25,7 @@ cli.add_command(create_fr)
 cli.add_command(list_frs)
 cli.add_command(validate_requirements_command)
 cli.add_command(create_objects_command)
+cli.add_command(create_sf)
 
 if __name__ == "__main__":
     cli()

@@ -1,9 +1,10 @@
 import click
 from dotenv import load_dotenv
-
+import datetime
 from anytype_api import AnytypeClient
 
 load_dotenv()
+
 
 @click.command()
 @click.option(
@@ -24,10 +25,20 @@ load_dotenv()
 )
 @click.option(
     "--fr-type-key",
-    default="task",
+    default="6829be190dd8772c7c96a583",
     help="The type key for FunctionalRequirement objects.",
 )
-def create_fr(space_name, fr_id, fr_description, fr_status, fr_type_key):
+@click.option("--system-feature", help="The ID of the related System Feature object.")
+@click.option("--links", help="A comma-separated list of object IDs to link.")
+def create_fr(
+    space_name,
+    fr_id,
+    fr_description,
+    fr_status,
+    fr_type_key,
+    system_feature,
+    links,
+):
     """Create a single Functional Requirement object in Anytype."""
     try:
         anytype_client = AnytypeClient()
@@ -38,16 +49,28 @@ def create_fr(space_name, fr_id, fr_description, fr_status, fr_type_key):
             return
         space_id = space["id"]
 
+        properties = [
+            {"key": "6829bde80dd8772c7c96a582", "text": fr_id},
+            {"key": "description", "text": fr_description},
+            {
+                "key": "created_date",
+                "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            },
+        ]
+
+        if system_feature:
+            properties.append({"key": "6829c5d10dd8772c7c96a599", "objects": [system_feature]})
+
+        if links:
+            properties.append({"key": "links", "objects": links.split(",")})
+
         fr_payload = {
             "type_key": fr_type_key,
             "name": fr_id,
-            "properties": [
-                {"key": "description", "text": fr_description},
-                {"key": "status", "select": fr_status},
-            ],
+            "properties": properties,
         }
         created_fr = anytype_client.create_object(space_id, fr_payload)
-        click.echo(f"✅ Created FunctionalRequirement: {created_fr['id']}")
+        click.echo(f"✅ Created FunctionalRequirement: {created_fr['object']['id']}")
 
     except Exception as e:
         click.echo(f"Error: {e}")
