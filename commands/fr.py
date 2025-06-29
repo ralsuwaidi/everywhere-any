@@ -32,7 +32,19 @@ load_dotenv()
     default="6829be190dd8772c7c96a583",
     help="The type key for FunctionalRequirement objects.",
 )
-@click.option("--system-feature", help="The ID of the related System Feature object.")
+@click.option(
+    "--system-feature-id",
+    help="The ID of the related System Feature object.",
+)
+@click.option(
+    "--system-feature-name",
+    help="The name of the related System Feature object.",
+)
+@click.option(
+    "--system-feature-type-key",
+    default="bafyreiczbkx2ungqnhdf6c7haiq3efjvpb3cqm5tyfnpei3nopbexf7o2e",
+    help="The type key for System Feature objects.",
+)
 @click.option("--links", help="A comma-separated list of object IDs to link.")
 @click.option(
     "--template-id",
@@ -45,7 +57,9 @@ def create_fr(
     fr_description,
     fr_status,
     fr_type_key,
-    system_feature,
+    system_feature_id,
+    system_feature_name,
+    system_feature_type_key,
     links,
     template_id,
 ):
@@ -68,9 +82,44 @@ def create_fr(
             },
         ]
 
-        if system_feature:
+        system_feature_object_id = None
+        if system_feature_id and system_feature_name:
+            click.echo(
+                "Error: Please provide either --system-feature-id or --system-feature-name, not both."
+            )
+            return
+        elif system_feature_id:
+            system_feature_object_id = system_feature_id
+        elif system_feature_name:
+            # Search for the System Feature by name
+            system_features = anytype_client.search_objects(
+                space_id, system_feature_name, [system_feature_type_key]
+            )
+            if system_features and system_features["data"]:
+                # Assuming the first match is the correct one
+                system_feature_object_id = system_features["data"][0]["id"]
+            else:
+                click.echo(
+                    f"Error: System Feature with name '{system_feature_name}' not found."
+                )
+                # List available System Features
+                all_system_features = anytype_client.search_objects(
+                    space_id, "", [system_feature_type_key]
+                )
+                if all_system_features and all_system_features["data"]:
+                    click.echo("\nAvailable System Features:")
+                    for sf_obj in all_system_features["data"]:
+                        click.echo(f"- {sf_obj['name']}")
+                else:
+                    click.echo("No System Features found in this space.")
+                return
+
+        if system_feature_object_id:
             properties.append(
-                {"key": "6829c5d10dd8772c7c96a599", "objects": [system_feature]}
+                {
+                    "key": "6829c5d10dd8772c7c96a599",
+                    "objects": [system_feature_object_id],
+                }
             )
 
         if links:
