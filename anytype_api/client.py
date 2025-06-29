@@ -42,3 +42,6 @@ class AnytypeClient:
 
     def update_object(self, object_id, payload):
         return self._make_request("PATCH", f"/v1/objects/{object_id}", payload)
+
+    def get_templates_for_type(self, space_id, type_id):
+        return self._make_request("GET", f"/v1/spaces/{space_id}/types/{type_id}/templates")

@@ -1,6 +1,8 @@
+import datetime
+
 import click
 from dotenv import load_dotenv
-import datetime
+
 from anytype_api import AnytypeClient
 
 load_dotenv()
@@ -30,6 +32,11 @@ load_dotenv()
 )
 @click.option("--system-feature", help="The ID of the related System Feature object.")
 @click.option("--links", help="A comma-separated list of object IDs to link.")
+@click.option(
+    "--template-id",
+    default="bafyreidchi3wlbchypmpp3tksocuxzyh6hozuar4vihogm7jg7ps53yzby",
+    help="The ID of the template to use for the FR.",
+)
 def create_fr(
     space_name,
     fr_id,
@@ -38,6 +45,7 @@ def create_fr(
     fr_type_key,
     system_feature,
     links,
+    template_id,
 ):
     """Create a single Functional Requirement object in Anytype."""
     try:
@@ -59,7 +67,9 @@ def create_fr(
         ]
 
         if system_feature:
-            properties.append({"key": "6829c5d10dd8772c7c96a599", "objects": [system_feature]})
+            properties.append(
+                {"key": "6829c5d10dd8772c7c96a599", "objects": [system_feature]}
+            )
 
         if links:
             properties.append({"key": "links", "objects": links.split(",")})
@@ -69,6 +79,9 @@ def create_fr(
             "name": fr_id,
             "properties": properties,
         }
+        if template_id:
+            fr_payload["template_id"] = template_id
+
         created_fr = anytype_client.create_object(space_id, fr_payload)
         click.echo(f"✅ Created FunctionalRequirement: {created_fr['object']['id']}")
 
