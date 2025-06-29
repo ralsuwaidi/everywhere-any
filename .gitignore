@@ -12,3 +12,4 @@ wheels/
 #project
 .env
 requirements.*
+report.md
