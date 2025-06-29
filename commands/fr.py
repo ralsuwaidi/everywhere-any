@@ -11,10 +11,12 @@ load_dotenv()
 @click.command()
 @click.option(
     "--space-name",
-    required=True,
+    default="Everywhere",
     help="The name of the Anytype space.",
 )
-@click.option("--fr-id", required=True, help="The ID of the Functional Requirement.")
+@click.option(
+    "--fr-name", required=True, help="The name of the Functional Requirement."
+)
 @click.option(
     "--fr-description",
     required=True,
@@ -39,7 +41,7 @@ load_dotenv()
 )
 def create_fr(
     space_name,
-    fr_id,
+    fr_name,
     fr_description,
     fr_status,
     fr_type_key,
@@ -58,7 +60,7 @@ def create_fr(
         space_id = space["id"]
 
         properties = [
-            {"key": "6829bde80dd8772c7c96a582", "text": fr_id},
+            {"key": "6829bde80dd8772c7c96a582", "text": fr_name},
             {"key": "description", "text": fr_description},
             {
                 "key": "created_date",
@@ -75,16 +77,18 @@ def create_fr(
             properties.append({"key": "links", "objects": links.split(",")})
 
         # Check if an FR with the same ID already exists
-        existing_frs = anytype_client.search_objects(space_id, fr_id, [fr_type_key])
+        existing_frs = anytype_client.search_objects(space_id, fr_name, [fr_type_key])
         if existing_frs and existing_frs["data"]:
             for obj in existing_frs["data"]:
-                if obj["name"] == fr_id:
-                    click.echo(f"Error: Functional Requirement with name '{fr_id}' already exists.")
+                if obj["name"] == fr_name:
+                    click.echo(
+                        f"Error: Functional Requirement with name '{fr_name}' already exists."
+                    )
                     return
 
         fr_payload = {
             "type_key": fr_type_key,
-            "name": fr_id,
+            "name": fr_name,
             "properties": properties,
         }
         if template_id:
