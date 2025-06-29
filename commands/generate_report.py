@@ -66,14 +66,15 @@ def generate_report(space_name, output_file):
 
         # Create a map for easy lookup of FRs by linked SF ID, and store parsed FR numbers for sorting
         frs_by_sf_id = {}
+        # Create a map for easy lookup of APIs by linked FR ID
+        apis_by_fr_id = {}
+
         for fr_obj in functional_requirements:
             linked_sf_id = None
-            linked_api_ids = []
             for prop in fr_obj.get("properties", []):
                 if prop.get("key") == "6829c5d10dd8772c7c96a599" and prop.get("objects"):
                     linked_sf_id = prop["objects"][0] # Assuming one linked SF
-                elif prop.get("key") == "links" and prop.get("objects"): # Assuming 'links' property for APIs
-                    linked_api_ids = prop["objects"]
+                    break
 
             if linked_sf_id:
                 if linked_sf_id not in frs_by_sf_id:
@@ -82,7 +83,19 @@ def generate_report(space_name, output_file):
                 # Parse FR number for sorting (e.g., "FR-1.1" -> [1, 1])
                 fr_name = fr_obj.get("name", "")
                 fr_number_parts = [int(p) for p in fr_name.replace("FR-", "").split(".")]
-                frs_by_sf_id[linked_sf_id].append({"obj": fr_obj, "sort_key": fr_number_parts, "linked_api_ids": linked_api_ids})
+                frs_by_sf_id[linked_sf_id].append({"obj": fr_obj, "sort_key": fr_number_parts})
+
+        # Populate apis_by_fr_id map
+        for api_obj in apis:
+            linked_fr_ids = []
+            for prop in api_obj.get("properties", []):
+                if prop.get("key") == "6829e4c40dd8772c7c96a5ac" and prop.get("objects"):
+                    linked_fr_ids.extend(prop["objects"])
+            
+            for fr_id in linked_fr_ids:
+                if fr_id not in apis_by_fr_id:
+                    apis_by_fr_id[fr_id] = []
+                apis_by_fr_id[fr_id].append(api_obj)
 
         # Sort FRs within each SF group
         for sf_id in frs_by_sf_id:
@@ -120,18 +133,37 @@ def generate_report(space_name, output_file):
                     fr_obj = fr_data["obj"]
                     fr_name = fr_obj.get("name", "Unknown Functional Requirement")
                     fr_description = ""
+                    fr_status = ""
                     for prop in fr_obj.get("properties", []):
                         if prop.get("key") == "description":
                             fr_description = prop.get("text", "")
-                            break
+                        elif prop.get("key") == "status":
+                            fr_status = prop.get("value", "")
+
+                    fr_status = ""
+                    for prop in fr_obj.get("properties", []):
+                        if prop.get("key") == "description":
+                            fr_description = prop.get("text", "")
+                        elif prop.get("key") == "status":
+                            fr_status = prop.get("select", {}).get("name", "")
+
+                    if fr_status == "Done":
+                        fr_name += " (Done)"
                     report_content.append(f"- **{fr_name}**: {fr_description}\n")
 
                     # Append linked APIs
-                    linked_apis = [apis_by_id[api_id] for api_id in fr_data["linked_api_ids"] if api_id in apis_by_id]
+                    linked_apis = apis_by_fr_id.get(fr_obj["id"], [])
                     if linked_apis:
                         report_content.append(f"  - **Linked APIs:**\n")
                         for api_obj in linked_apis:
                             api_name = api_obj.get("name", "Unknown API")
+                            api_status = ""
+                            for prop in api_obj.get("properties", []):
+                                if prop.get("key") == "status":
+                                    api_status = prop.get("select", {}).get("name", "")
+                                    break
+                            if api_status == "Done":
+                                api_name += " (Done)"
                             report_content.append(f"    - {api_name}\n")
             else:
                 report_content.append(f"_No Functional Requirements found for {sf_name}_\n")
