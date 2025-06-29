@@ -34,6 +34,14 @@ def create_sf(space_name, sf_id, sf_description, sf_type_key):
             return
         space_id = space["id"]
 
+        # Check if an SF with the same name already exists
+        existing_sfs = anytype_client.search_objects(space_id, sf_id, [sf_type_key])
+        if existing_sfs and existing_sfs["data"]:
+            for obj in existing_sfs["data"]:
+                if obj["name"] == sf_id:
+                    click.echo(f"Error: System Feature with name '{sf_id}' already exists.")
+                    return
+
         sf_payload = {
             "type_key": sf_type_key,
             "name": sf_id,

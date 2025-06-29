@@ -74,6 +74,14 @@ def create_fr(
         if links:
             properties.append({"key": "links", "objects": links.split(",")})
 
+        # Check if an FR with the same ID already exists
+        existing_frs = anytype_client.search_objects(space_id, fr_id, [fr_type_key])
+        if existing_frs and existing_frs["data"]:
+            for obj in existing_frs["data"]:
+                if obj["name"] == fr_id:
+                    click.echo(f"Error: Functional Requirement with name '{fr_id}' already exists.")
+                    return
+
         fr_payload = {
             "type_key": fr_type_key,
             "name": fr_id,
