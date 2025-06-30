@@ -21,8 +21,15 @@ class AnytypeClient:
         body = json.dumps(payload) if payload else ""
         conn.request(method, endpoint, body, self.headers)
         res = conn.getresponse()
-        data = res.read()
-        return json.loads(data.decode("utf-8"))
+        data = res.read().decode("utf-8")
+        if res.status >= 400:
+            raise Exception(f"API Error: {res.status} {res.reason} - {data}")
+        try:
+            return json.loads(data)
+        except json.JSONDecodeError:
+            # Handle ndjson
+            lines = data.strip().split("\n")
+            return [json.loads(line) for line in lines]
 
     def get_spaces(self):
         return self._make_request("GET", "/v1/spaces")
@@ -32,6 +39,9 @@ class AnytypeClient:
 
     def get_object_type(self, space_id, type_id):
         return self._make_request("GET", f"/v1/spaces/{space_id}/types/{type_id}")
+
+    def get_object(self, space_id, object_id):
+        return self._make_request("GET", f"/v1/spaces/{space_id}/objects/{object_id}")
 
     def search_objects(self, space_id, query, type_ids):
         payload = {"query": query, "types": type_ids}
@@ -44,4 +54,6 @@ class AnytypeClient:
         return self._make_request("PATCH", f"/v1/objects/{object_id}", payload)
 
     def get_templates_for_type(self, space_id, type_id):
-        return self._make_request("GET", f"/v1/spaces/{space_id}/types/{type_id}/templates")
+        return self._make_request(
+            "GET", f"/v1/spaces/{space_id}/types/{type_id}/templates"
+        )

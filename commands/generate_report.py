@@ -1,9 +1,11 @@
+from parser.models import API, SystemFeature
+
 import click
 import markdown
 from dotenv import load_dotenv
 from weasyprint import HTML
 
-from anytype_api import AnytypeClient
+from anytype_api.client import AnytypeClient
 
 load_dotenv()
 
@@ -37,105 +39,54 @@ def generate_report(space_name, output_file, output_format):
         space_id = space["id"]
 
         report_content = []
-        total_sfs = 0
-        total_frs = 0
 
         # Fetch System Features
         sf_type_key = "bafyreiczbkx2ungqnhdf6c7haiq3efjvpb3cqm5tyfnpei3nopbexf7o2e"  # Hardcoded SF type key
         system_features_results = anytype_client.search_objects(
             space_id, "", [sf_type_key]
         )
-        system_features = (
-            system_features_results["data"]
-            if system_features_results and system_features_results["data"]
-            else []
-        )
-        total_sfs = len(system_features)
+        system_feature_ids = [
+            obj["id"] for obj in system_features_results.get("data", [])
+        ]
 
-        # Fetch Functional Requirements
-        fr_type_key = "6829be190dd8772c7c96a583"  # Hardcoded FR type key
-        functional_requirements_results = anytype_client.search_objects(
-            space_id, "", [fr_type_key]
-        )
-        functional_requirements = (
-            functional_requirements_results["data"]
-            if functional_requirements_results
-            and functional_requirements_results["data"]
-            else []
-        )
-        total_frs = len(functional_requirements)
+        system_features = [
+            SystemFeature(id=sf_id, space_id=space_id) for sf_id in system_feature_ids
+        ]
 
-        # Fetch API objects
+        # Fetch API objects and create a mapping for easy lookup
         api_type_id = "bafyreicpin6mrj5btg3tqy6ve5twfjqittegdmojpai6d6vmhbuqmkmytq"  # Hardcoded API type ID
         api_results = anytype_client.search_objects(space_id, "", [api_type_id])
-        apis = api_results["data"] if api_results and api_results["data"] else []
-
-        # Create a map for easy lookup of APIs by their ID
-        apis_by_id = {api["id"]: api for api in apis}
-
-        # Sort System Features by their custom 'Id' property numerically
-        def get_sf_sort_key(sf_obj):
-            for prop in sf_obj.get("properties", []):
-                if (
-                    prop.get("key") == "6829bde80dd8772c7c96a582"
-                ):  # Custom 'Id' property key
-                    sf_id_str = prop.get("text", "").replace("SR-", "")
-                    try:
-                        return int(sf_id_str)
-                    except ValueError:
-                        return float(
-                            "inf"
-                        )  # Handle cases where ID is not purely numeric
-            return float("inf")  # SFs without the custom ID go to the end
-
-        system_features.sort(key=get_sf_sort_key)
-
-        # Create a map for easy lookup of FRs by linked SF ID, and store parsed FR numbers for sorting
-        frs_by_sf_id = {}
-        # Create a map for easy lookup of APIs by linked FR ID
         apis_by_fr_id = {}
-
-        for fr_obj in functional_requirements:
-            linked_sf_id = None
-            for prop in fr_obj.get("properties", []):
-                if prop.get("key") == "6829c5d10dd8772c7c96a599" and prop.get(
-                    "objects"
-                ):
-                    linked_sf_id = prop["objects"][0]  # Assuming one linked SF
-                    break
-
-            if linked_sf_id:
-                if linked_sf_id not in frs_by_sf_id:
-                    frs_by_sf_id[linked_sf_id] = []
-
-                # Parse FR number for sorting (e.g., "FR-1.1" -> [1, 1])
-                fr_name = fr_obj.get("name", "")
-                fr_number_parts = [
-                    int(p) for p in fr_name.replace("FR-", "").split(".")
-                ]
-                frs_by_sf_id[linked_sf_id].append(
-                    {"obj": fr_obj, "sort_key": fr_number_parts}
-                )
-
-        # Populate apis_by_fr_id map
-        for api_obj in apis:
-            linked_fr_ids = []
-            for prop in api_obj.get("properties", []):
+        for api_obj_data in api_results.get("data", []):
+            api_obj = API(id=api_obj_data["id"], space_id=space_id)
+            for prop in api_obj_data.get("properties", []):
                 if prop.get("key") == "6829e4c40dd8772c7c96a5ac" and prop.get(
                     "objects"
                 ):
-                    linked_fr_ids.extend(prop["objects"])
+                    for fr_id in prop.get("objects"):
+                        if fr_id not in apis_by_fr_id:
+                            apis_by_fr_id[fr_id] = []
+                        apis_by_fr_id[fr_id].append(api_obj)
 
-            for fr_id in linked_fr_ids:
-                if fr_id not in apis_by_fr_id:
-                    apis_by_fr_id[fr_id] = []
-                apis_by_fr_id[fr_id].append(api_obj)
+        # Sort System Features by their custom 'Id' property numerically
+        def get_sf_sort_key(sf_obj):
+            sf_id_str = sf_obj.custom_id.replace("SR-", "")
+            try:
+                return int(sf_id_str)
+            except ValueError:
+                return float("inf")
 
-        # Sort FRs within each SF group
-        for sf_id in frs_by_sf_id:
-            frs_by_sf_id[sf_id].sort(key=lambda x: x["sort_key"])
+        system_features.sort(key=get_sf_sort_key)
 
-        # Summary Section
+        total_sfs = len(system_features)
+        total_frs = 0
+
+        # Populate FRs and APIs and calculate total_frs
+        for sf in system_features:
+            for fr in sf.functional_requirements:
+                fr.apis = apis_by_fr_id.get(fr.id, [])
+                total_frs += 1
+
         report_content.append("# Requirements Report\n")
         report_content.append(f"## Summary\n")
         report_content.append(f"- Total System Features: {total_sfs}\n")
@@ -143,81 +94,41 @@ def generate_report(space_name, output_file, output_format):
 
         # System Features and Functional Requirements Section
         report_content.append("## System Features and Functional Requirements\n")
-        for sf_obj in system_features:
-            sf_name = sf_obj.get("name", "Unknown System Feature")
-            sf_description = ""
-            sf_custom_id = ""
-            for prop in sf_obj.get("properties", []):
-                if prop.get("key") == "description":
-                    sf_description = prop.get("text", "")
-                elif (
-                    prop.get("key") == "6829bde80dd8772c7c96a582"
-                ):  # Custom 'Id' property key
-                    sf_custom_id = prop.get("text", "")
-
-            # Use the custom 'Id' as the SR-X prefix
-            report_content.append(f"### {sf_custom_id} {sf_name}\n")
-            if sf_description:
-                report_content.append(f"> {sf_description}\n")
+        for sf in system_features:
+            sf.functional_requirements.sort(key=lambda fr: fr.sort_key)
+            report_content.append(f"### {sf.custom_id} {sf.name}\n")
+            if sf.description:
+                report_content.append(f"> {sf.description}\n")
             report_content.append(f"\n")
 
             # List associated Functional Requirements
-            associated_frs_data = frs_by_sf_id.get(sf_obj["id"], [])
-            if associated_frs_data:
+            if sf.functional_requirements:
                 report_content.append(f"#### Functional Requirements\n")
-                for fr_data in associated_frs_data:
-                    fr_obj = fr_data["obj"]
-                    fr_name = fr_obj.get("name", "Unknown Functional Requirement")
-                    fr_description = ""
-                    fr_status = ""
-                    for prop in fr_obj.get("properties", []):
-                        if prop.get("key") == "description":
-                            fr_description = prop.get("text", "")
-                        elif prop.get("key") == "status":
-                            fr_status = prop.get("value", "")
-
-                    fr_status = ""
-                    for prop in fr_obj.get("properties", []):
-                        if prop.get("key") == "description":
-                            fr_description = prop.get("text", "")
-                        elif prop.get("key") == "status":
-                            fr_status = prop.get("select", {}).get("name", "")
-
-                    if fr_status == "Done":
+                for fr in sf.functional_requirements:
+                    fr_name = fr.name
+                    if fr.status == "Done":
                         fr_name += " (Done)"
-                    report_content.append(f"- **{fr_name}**: {fr_description}\n")
+                    report_content.append(f"- **{fr_name}**: {fr.description}\n")
 
                     # Append linked APIs
-                    linked_apis = apis_by_fr_id.get(fr_obj["id"], [])
-                    if linked_apis:
+                    if fr.apis:
                         report_content.append(f"  - **Linked APIs:**\n")
-                        for api_obj in linked_apis:
-                            api_name = api_obj.get("name", "Unknown API")
-                            api_status = ""
-                            postman_url = ""
-                            api_type = ""
+                        for api in fr.apis:
+                            name_with_status = api.name
+                            if api.status == "Done":
+                                name_with_status += " (Done)"
 
-                            for prop in api_obj.get("properties", []):
-                                if prop.get("name") == "Status":
-                                    api_status = prop.get("select", {}).get("name", "")
-                                if prop.get("name") == "Postman URL":
-                                    postman_url = prop.get("url", "")
-                                if prop.get("name") == "API Type":
-                                    api_type = prop.get("select", "").get("name", "")
-
-                            # Only add "(Done)" if status is Done
-                            if api_status == "Done":
+                            if api.postman_url:
+                                display_name = f"{api.api_type or ''} [{name_with_status}]({api.postman_url})"
+                            else:
                                 display_name = (
-                                    f"[{api_name}]({postman_url}) (Done)"
-                                    if postman_url
-                                    else f"{api_name} (Done)"
+                                    f"{api.api_type or ''} {name_with_status}"
                                 )
-                            report_content.append(
-                                f"    - {api_type or ""}\t{display_name}\n"
-                            )
+
+                            report_content.append(f"    - {display_name.strip()}\n")
             else:
                 report_content.append(
-                    f"_No Functional Requirements found for {sf_name}_\n"
+                    f"_No Functional Requirements found for {sf.name}_\n"
                 )
             report_content.append("\n")
 
