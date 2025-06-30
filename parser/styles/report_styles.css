@@ -1,0 +1,121 @@
+/* parser/styles/report_styles.css */
+
+@page {
+    size: A4;
+    margin: 1in;
+    @bottom-right {
+        content: "Page " counter(page) " of " counter(pages);
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 9pt;
+        color: #555;
+    }
+}
+
+body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    font-family: "Georgia", serif;
+    font-size: 2.5em;
+    color: #2c3e50;
+    text-align: center;
+    margin-top: 2em;
+    margin-bottom: 1em;
+}
+
+h2 {
+    font-family: "Georgia", serif;
+    font-size: 1.8em;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.3em;
+    margin-top: 1.5em;
+}
+
+h3 {
+    font-family: "Georgia", serif;
+    font-size: 1.4em;
+    color: #34495e;
+    margin-top: 1.2em;
+}
+
+h4 {
+    font-size: 1.2em;
+    color: #34495e;
+    margin-top: 1em;
+}
+
+p {
+    margin-bottom: 1em;
+}
+
+ul {
+    margin-bottom: 1em;
+}
+
+li {
+    margin-bottom: 0.5em;
+}
+
+strong {
+    color: #2c3e50;
+}
+
+/* Specific styles for the report content */
+.summary-box {
+    border: 1px solid #ddd;
+    padding: 1em;
+    background-color: #f9f9f9;
+    margin-bottom: 2em;
+}
+
+.title-page {
+    text-align: center;
+    page-break-after: always;
+    padding-top: 4in;
+}
+
+.title-page h1 {
+    font-size: 3em;
+    margin-bottom: 0.5em;
+    color: #2c3e50;
+}
+
+.title-page p {
+    font-size: 1.2em;
+    color: #555;
+}
+
+.title-page .date {
+    margin-top: 2em;
+    font-size: 1em;
+    color: #777;
+}
+
+/* Table of Contents (if we add one later) */
+.table-of-contents {
+    page-break-after: always;
+}
+
+.table-of-contents ul {
+    list-style: none;
+    padding: 0;
+}
+
+.table-of-contents li {
+    margin-bottom: 0.5em;
+}
+
+.table-of-contents a {
+    text-decoration: none;
+    color: #3498db;
+}
+
+.table-of-contents a:hover {
+    text-decoration: underline;
+}

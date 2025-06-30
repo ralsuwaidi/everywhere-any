@@ -1,7 +1,9 @@
 import click
 from dotenv import load_dotenv
 import markdown
-from weasyprint import HTML
+from weasyprint import HTML, CSS
+from datetime import date
+import os
 
 from anytype_api import AnytypeClient
 
@@ -110,13 +112,25 @@ def generate_report(space_name, output_file, output_format):
             frs_by_sf_id[sf_id].sort(key=lambda x: x["sort_key"])
 
         # Summary Section
-        report_content.append("# Requirements Report\n")
-        report_content.append(f"## Summary\n")
+        report_content.append("<div class=\"title-page\">")
+        report_content.append(f"<h1>Project Requirements Report</h1>")
+        report_content.append(f"<p><strong>Project:</strong> {space_name}</p>")
+        report_content.append(f"<p><strong>Date:</strong> {date.today().strftime('%B %d, %Y')}</p>")
+        report_content.append("</div>")
+        report_content.append("\n")
+
+        report_content.append("<h2>Executive Summary</h2>")
+        report_content.append("<div class=\"summary-box\">")
+        report_content.append(f"<p>This report provides a comprehensive overview of the system features (SFs) and functional requirements (FRs) for the <strong>{space_name}</strong> project. It details the current status of {total_sfs} system features and {total_frs} associated functional requirements, outlining their descriptions, statuses, and linked API implementations. This document serves as a critical reference for stakeholders, ensuring clarity and alignment on project scope and progress.</p>")
+        report_content.append("</div>")
+        report_content.append("\n")
+
+        report_content.append(f"<h2>Report Overview</h2>")
         report_content.append(f"- Total System Features: {total_sfs}\n")
         report_content.append(f"- Total Functional Requirements: {total_frs}\n\n")
 
         # System Features and Functional Requirements Section
-        report_content.append("## System Features and Functional Requirements\n")
+        report_content.append("<h2>System Features and Functional Requirements</h2>\n")
         for sf_obj in system_features:
             sf_name = sf_obj.get("name", "Unknown System Feature")
             sf_description = ""
@@ -191,7 +205,15 @@ def generate_report(space_name, output_file, output_format):
             
             try:
                 html_content = markdown.markdown(md_content)
-                HTML(string=html_content).write_pdf(final_output_file)
+                
+                # Get the absolute path to the CSS file
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                css_path = os.path.join(script_dir, "..", "parser", "styles", "report_styles.css")
+                
+                # Load the CSS
+                css = CSS(filename=css_path)
+                
+                HTML(string=html_content).write_pdf(final_output_file, stylesheets=[css])
                 click.echo(f"✅ Report generated successfully: {final_output_file}")
             except Exception as e:
                 click.echo(f"Error during PDF conversion: {e}")
