@@ -1,13 +1,12 @@
 import click
-from dotenv import load_dotenv
 import markdown
-from weasyprint import HTML, CSS
-from datetime import date
-import os
+from dotenv import load_dotenv
+from weasyprint import HTML
 
 from anytype_api import AnytypeClient
 
 load_dotenv()
+
 
 @click.command()
 @click.option(
@@ -42,19 +41,32 @@ def generate_report(space_name, output_file, output_format):
         total_frs = 0
 
         # Fetch System Features
-        sf_type_key = "bafyreiczbkx2ungqnhdf6c7haiq3efjvpb3cqm5tyfnpei3nopbexf7o2e" # Hardcoded SF type key
-        system_features_results = anytype_client.search_objects(space_id, "", [sf_type_key])
-        system_features = system_features_results["data"] if system_features_results and system_features_results["data"] else []
+        sf_type_key = "bafyreiczbkx2ungqnhdf6c7haiq3efjvpb3cqm5tyfnpei3nopbexf7o2e"  # Hardcoded SF type key
+        system_features_results = anytype_client.search_objects(
+            space_id, "", [sf_type_key]
+        )
+        system_features = (
+            system_features_results["data"]
+            if system_features_results and system_features_results["data"]
+            else []
+        )
         total_sfs = len(system_features)
 
         # Fetch Functional Requirements
-        fr_type_key = "6829be190dd8772c7c96a583" # Hardcoded FR type key
-        functional_requirements_results = anytype_client.search_objects(space_id, "", [fr_type_key])
-        functional_requirements = functional_requirements_results["data"] if functional_requirements_results and functional_requirements_results["data"] else []
+        fr_type_key = "6829be190dd8772c7c96a583"  # Hardcoded FR type key
+        functional_requirements_results = anytype_client.search_objects(
+            space_id, "", [fr_type_key]
+        )
+        functional_requirements = (
+            functional_requirements_results["data"]
+            if functional_requirements_results
+            and functional_requirements_results["data"]
+            else []
+        )
         total_frs = len(functional_requirements)
 
         # Fetch API objects
-        api_type_id = "bafyreicpin6mrj5btg3tqy6ve5twfjqittegdmojpai6d6vmhbuqmkmytq" # Hardcoded API type ID
+        api_type_id = "bafyreicpin6mrj5btg3tqy6ve5twfjqittegdmojpai6d6vmhbuqmkmytq"  # Hardcoded API type ID
         api_results = anytype_client.search_objects(space_id, "", [api_type_id])
         apis = api_results["data"] if api_results and api_results["data"] else []
 
@@ -64,13 +76,17 @@ def generate_report(space_name, output_file, output_format):
         # Sort System Features by their custom 'Id' property numerically
         def get_sf_sort_key(sf_obj):
             for prop in sf_obj.get("properties", []):
-                if prop.get("key") == "6829bde80dd8772c7c96a582": # Custom 'Id' property key
+                if (
+                    prop.get("key") == "6829bde80dd8772c7c96a582"
+                ):  # Custom 'Id' property key
                     sf_id_str = prop.get("text", "").replace("SR-", "")
                     try:
                         return int(sf_id_str)
                     except ValueError:
-                        return float('inf') # Handle cases where ID is not purely numeric
-            return float('inf') # SFs without the custom ID go to the end
+                        return float(
+                            "inf"
+                        )  # Handle cases where ID is not purely numeric
+            return float("inf")  # SFs without the custom ID go to the end
 
         system_features.sort(key=get_sf_sort_key)
 
@@ -82,26 +98,34 @@ def generate_report(space_name, output_file, output_format):
         for fr_obj in functional_requirements:
             linked_sf_id = None
             for prop in fr_obj.get("properties", []):
-                if prop.get("key") == "6829c5d10dd8772c7c96a599" and prop.get("objects"):
-                    linked_sf_id = prop["objects"][0] # Assuming one linked SF
+                if prop.get("key") == "6829c5d10dd8772c7c96a599" and prop.get(
+                    "objects"
+                ):
+                    linked_sf_id = prop["objects"][0]  # Assuming one linked SF
                     break
 
             if linked_sf_id:
                 if linked_sf_id not in frs_by_sf_id:
                     frs_by_sf_id[linked_sf_id] = []
-                
+
                 # Parse FR number for sorting (e.g., "FR-1.1" -> [1, 1])
                 fr_name = fr_obj.get("name", "")
-                fr_number_parts = [int(p) for p in fr_name.replace("FR-", "").split(".")]
-                frs_by_sf_id[linked_sf_id].append({"obj": fr_obj, "sort_key": fr_number_parts})
+                fr_number_parts = [
+                    int(p) for p in fr_name.replace("FR-", "").split(".")
+                ]
+                frs_by_sf_id[linked_sf_id].append(
+                    {"obj": fr_obj, "sort_key": fr_number_parts}
+                )
 
         # Populate apis_by_fr_id map
         for api_obj in apis:
             linked_fr_ids = []
             for prop in api_obj.get("properties", []):
-                if prop.get("key") == "6829e4c40dd8772c7c96a5ac" and prop.get("objects"):
+                if prop.get("key") == "6829e4c40dd8772c7c96a5ac" and prop.get(
+                    "objects"
+                ):
                     linked_fr_ids.extend(prop["objects"])
-            
+
             for fr_id in linked_fr_ids:
                 if fr_id not in apis_by_fr_id:
                     apis_by_fr_id[fr_id] = []
@@ -112,25 +136,13 @@ def generate_report(space_name, output_file, output_format):
             frs_by_sf_id[sf_id].sort(key=lambda x: x["sort_key"])
 
         # Summary Section
-        report_content.append("<div class=\"title-page\">")
-        report_content.append(f"<h1>Project Requirements Report</h1>")
-        report_content.append(f"<p><strong>Project:</strong> {space_name}</p>")
-        report_content.append(f"<p><strong>Date:</strong> {date.today().strftime('%B %d, %Y')}</p>")
-        report_content.append("</div>")
-        report_content.append("\n")
-
-        report_content.append("<h2>Executive Summary</h2>")
-        report_content.append("<div class=\"summary-box\">")
-        report_content.append(f"<p>This report provides a comprehensive overview of the system features (SFs) and functional requirements (FRs) for the <strong>{space_name}</strong> project. It details the current status of {total_sfs} system features and {total_frs} associated functional requirements, outlining their descriptions, statuses, and linked API implementations. This document serves as a critical reference for stakeholders, ensuring clarity and alignment on project scope and progress.</p>")
-        report_content.append("</div>")
-        report_content.append("\n")
-
-        report_content.append(f"<h2>Report Overview</h2>")
+        report_content.append("# Requirements Report\n")
+        report_content.append(f"## Summary\n")
         report_content.append(f"- Total System Features: {total_sfs}\n")
         report_content.append(f"- Total Functional Requirements: {total_frs}\n\n")
 
         # System Features and Functional Requirements Section
-        report_content.append("<h2>System Features and Functional Requirements</h2>\n")
+        report_content.append("## System Features and Functional Requirements\n")
         for sf_obj in system_features:
             sf_name = sf_obj.get("name", "Unknown System Feature")
             sf_description = ""
@@ -138,9 +150,11 @@ def generate_report(space_name, output_file, output_format):
             for prop in sf_obj.get("properties", []):
                 if prop.get("key") == "description":
                     sf_description = prop.get("text", "")
-                elif prop.get("key") == "6829bde80dd8772c7c96a582": # Custom 'Id' property key
+                elif (
+                    prop.get("key") == "6829bde80dd8772c7c96a582"
+                ):  # Custom 'Id' property key
                     sf_custom_id = prop.get("text", "")
-            
+
             # Use the custom 'Id' as the SR-X prefix
             report_content.append(f"### {sf_custom_id} {sf_name}\n")
             if sf_description:
@@ -180,15 +194,31 @@ def generate_report(space_name, output_file, output_format):
                         for api_obj in linked_apis:
                             api_name = api_obj.get("name", "Unknown API")
                             api_status = ""
+                            postman_url = ""
+                            api_type = ""
+
                             for prop in api_obj.get("properties", []):
-                                if prop.get("key") == "status":
+                                if prop.get("name") == "Status":
                                     api_status = prop.get("select", {}).get("name", "")
-                                    break
+                                if prop.get("name") == "Postman URL":
+                                    postman_url = prop.get("url", "")
+                                if prop.get("name") == "API Type":
+                                    api_type = prop.get("select", "").get("name", "")
+
+                            # Only add "(Done)" if status is Done
                             if api_status == "Done":
-                                api_name += " (Done)"
-                            report_content.append(f"    - {api_name}\n")
+                                display_name = (
+                                    f"[{api_name}]({postman_url}) (Done)"
+                                    if postman_url
+                                    else f"{api_name} (Done)"
+                                )
+                            report_content.append(
+                                f"    - {api_type or ""}\t{display_name}\n"
+                            )
             else:
-                report_content.append(f"_No Functional Requirements found for {sf_name}_\n")
+                report_content.append(
+                    f"_No Functional Requirements found for {sf_name}_\n"
+                )
             report_content.append("\n")
 
         # Write to file
@@ -200,29 +230,24 @@ def generate_report(space_name, output_file, output_format):
         elif output_format == "pdf":
             final_output_file = f"{output_file}.pdf"
             md_content = "".join(report_content)
-            
+
             click.echo(f"Converting Markdown to PDF: {final_output_file}...")
-            
+
             try:
                 html_content = markdown.markdown(md_content)
-                
-                # Get the absolute path to the CSS file
-                script_dir = os.path.dirname(os.path.abspath(__file__))
-                css_path = os.path.join(script_dir, "..", "parser", "styles", "report_styles.css")
-                
-                # Load the CSS
-                css = CSS(filename=css_path)
-                
-                HTML(string=html_content).write_pdf(final_output_file, stylesheets=[css])
+                HTML(string=html_content).write_pdf(final_output_file)
                 click.echo(f"✅ Report generated successfully: {final_output_file}")
             except Exception as e:
                 click.echo(f"Error during PDF conversion: {e}")
 
     except FileNotFoundError:
-        click.echo(f"Error: The file '{output_file}.md' was not found during PDF conversion.")
+        click.echo(
+            f"Error: The file '{output_file}.md' was not found during PDF conversion."
+        )
     except click.exceptions.Abort:
         click.echo("\nReport generation cancelled by user.")
     except Exception as e:
         click.echo(f"Error generating report: {e}")
         import traceback
+
         click.echo(traceback.format_exc())
