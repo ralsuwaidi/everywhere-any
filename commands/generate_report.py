@@ -1,9 +1,11 @@
 from parser.models import API, SystemFeature
+from parser.exporter import export_to_markdown_table, export_to_csv
 
 import click
 import markdown
 from dotenv import load_dotenv
 from weasyprint import HTML
+import os
 
 from anytype_api.client import AnytypeClient
 
@@ -23,13 +25,17 @@ load_dotenv()
 )
 @click.option(
     "--output-format",
-    type=click.Choice(["md", "pdf"], case_sensitive=False),
+    type=click.Choice(["md", "pdf", "md-table", "csv"], case_sensitive=False),
     default="md",
     help="The output format for the report.",
 )
 def generate_report(space_name, output_file, output_format):
     """Generates a Markdown report of System Features and Functional Requirements from Anytype."""
     try:
+        # Create reports directory if it doesn't exist
+        reports_dir = "reports"
+        os.makedirs(reports_dir, exist_ok=True)
+
         anytype_client = AnytypeClient()
         spaces = anytype_client.get_spaces()
         space = next((s for s in spaces["data"] if s["name"] == space_name), None)
@@ -37,8 +43,6 @@ def generate_report(space_name, output_file, output_format):
             click.echo(f"Error: Space '{space_name}' not found.")
             return
         space_id = space["id"]
-
-        report_content = []
 
         # Fetch System Features
         sf_type_key = "bafyreiczbkx2ungqnhdf6c7haiq3efjvpb3cqm5tyfnpei3nopbexf7o2e"  # Hardcoded SF type key
@@ -78,14 +82,25 @@ def generate_report(space_name, output_file, output_format):
 
         system_features.sort(key=get_sf_sort_key)
 
-        total_sfs = len(system_features)
-        total_frs = 0
-
-        # Populate FRs and APIs and calculate total_frs
+        # Populate FRs and APIs
         for sf in system_features:
             for fr in sf.functional_requirements:
                 fr.apis = apis_by_fr_id.get(fr.id, [])
-                total_frs += 1
+
+        if output_format == "md-table":
+            final_output_file = os.path.join(reports_dir, f"{output_file}.md")
+            export_to_markdown_table(system_features, final_output_file)
+            click.echo(f"✅ Report generated successfully: {final_output_file}")
+            return
+        if output_format == "csv":
+            final_output_file = os.path.join(reports_dir, f"{output_file}.csv")
+            export_to_csv(system_features, final_output_file)
+            click.echo(f"✅ Report generated successfully: {final_output_file}")
+            return
+
+        report_content = []
+        total_sfs = len(system_features)
+        total_frs = sum(len(sf.functional_requirements) for sf in system_features)
 
         report_content.append("# Requirements Report\n")
         report_content.append(f"## Summary\n")
@@ -134,12 +149,12 @@ def generate_report(space_name, output_file, output_format):
 
         # Write to file
         if output_format == "md":
-            final_output_file = f"{output_file}.md"
+            final_output_file = os.path.join(reports_dir, f"{output_file}.md")
             with open(final_output_file, "w") as f:
                 f.writelines(report_content)
             click.echo(f"✅ Report generated successfully: {final_output_file}")
         elif output_format == "pdf":
-            final_output_file = f"{output_file}.pdf"
+            final_output_file = os.path.join(reports_dir, f"{output_file}.pdf")
             md_content = "".join(report_content)
 
             click.echo(f"Converting Markdown to PDF: {final_output_file}...")
